@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "scheme": "iwant",
+    "name": "IWANT",
+    "slug": "client",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/IWANT.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "splash": {
+      "image": "./assets/IWANT.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "icon": "./assets/IWANT.png",
+      "edgeToEdgeEnabled": true,
+      "package": "IWANT.sinedd"
+    },
+    "web": {
+      "favicon": "./assets/IWANT.png"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "router": {
+        "origin": "iwant://"
+      },
+      "eas": {
+        "projectId": "7a7a7395-e65a-4cca-9342-83bf463c33ef"
+      }
+    }
+  }
+}
