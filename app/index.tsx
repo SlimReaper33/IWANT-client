@@ -165,7 +165,16 @@ export default function Index(): JSX.Element | null {
   }, [allCards, cardsInBlockThree, selectedSection, currentPage]);
 
   /** TTS */
-  const speakBlockThree = async () => {
+  async function isLanguageSupported(lang: string) {
+  try {
+    const voices = await Speech.getAvailableVoicesAsync();
+    return voices.some(v => v.language === lang);
+  } catch {
+    return false;
+  }
+}
+
+const speakBlockThree = async () => {
   if (!cardsInBlockThree.length) {
     const msg = t("card_not_found");
     return Speech.speak(msg, {
@@ -178,10 +187,19 @@ export default function Index(): JSX.Element | null {
     });
   }
 
+  // Проверяем заранее поддержку казахского TTS
+  const canKkTTS = await isLanguageSupported("kk-KZ");
+
   for (const c of cardsInBlockThree) {
-    // Если пользователь на казахском
+    // -- Казахстанская локаль --
     if (i18n.language === "kk") {
-      // 1) Если есть файл с казахским аудио — проигрываем его
+      // 1) Если TTS для казахского поддерживается и есть текст
+      if (canKkTTS && c.title_kk) {
+        Speech.speak(c.title_kk, { language: "kk-KZ", rate: 0.9 });
+        continue;
+      }
+
+      // 2) Иначе — если есть ваша записанная дорожка, проиграть её
       if (c.audio_kk) {
         const sound = new Audio.Sound();
         try {
@@ -191,19 +209,13 @@ export default function Index(): JSX.Element | null {
             if ("didJustFinish" in status && status.didJustFinish)
               sound.unloadAsync();
           });
-          continue;
         } catch {
-          // fallthrough to TTS
+          // пускай дальше fallthrough — если вдруг и этот способ не сработал
         }
-      }
-
-      // 2) Если есть текст на казахском — TTS на казахском
-      if (c.title_kk) {
-        Speech.speak(c.title_kk, { language: "kk-KZ", rate: 0.9 });
         continue;
       }
 
-      // 3) Иначе — если есть русский текст, читаем на русском
+      // 3) Если нет ни TTS-голоса, ни записи — читаем русский (если есть)
       if (c.title_ru) {
         Speech.speak(c.title_ru, { language: "ru-RU", rate: 0.9 });
         continue;
@@ -217,7 +229,7 @@ export default function Index(): JSX.Element | null {
       continue;
     }
 
-    // Пользователь на русском
+    // -- Русская локаль --
     if (i18n.language === "ru") {
       Speech.speak(c.title_ru || c.title, {
         language: "ru-RU",
@@ -226,7 +238,7 @@ export default function Index(): JSX.Element | null {
       continue;
     }
 
-    // Иначе — английский
+    // -- Дефолт: английский --
     Speech.speak(c.title_en || c.title, {
       language: "en-US",
       rate: 0.9,
@@ -372,6 +384,7 @@ export default function Index(): JSX.Element | null {
             <EditCardModal
               visible
               mode="user"
+              cardId={editParams.card.id}    
               onCancel={() => setEditModalVisible(false)}
               onConfirm={handleUpdate}
               onDelete={() => handleDelete(editParams.line, editParams.card)}

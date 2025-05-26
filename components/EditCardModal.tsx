@@ -1,3 +1,4 @@
+// client/components/EditCardModal.tsx
 import React, { FC, useEffect, useState } from 'react';
 import {
   Modal,
@@ -17,13 +18,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import LocalizedText from './LocalizedText';
 import { useKazakhRecorder } from '../hooks/useKazakhRecoreder';
-import { encryptAudio } from '../utils/encryption';
+import * as FileSystem from 'expo-file-system';
+import { useLocalAudio } from '../hooks/useLocalAudio';
 
 const CARD_MAX_W = 340;
 
 export interface EditCardModalProps {
   mode: 'user' | 'admin';
   visible: boolean;
+  cardId: string;  // уникальный идентификатор карточки для локального аудио
+
   currentTitle: string;
   currentTitleRu?: string;
   currentTitleEn?: string;
@@ -45,6 +49,7 @@ export interface EditCardModalProps {
 const EditCardModal: FC<EditCardModalProps> = ({
   mode,
   visible,
+  cardId,
   currentTitle,
   currentTitleRu = '',
   currentTitleEn = '',
@@ -58,17 +63,18 @@ const EditCardModal: FC<EditCardModalProps> = ({
   const { t } = useTranslation();
   const { recording, uri: recordedUri, start, stop, play } = useKazakhRecorder();
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
+  const { setLocal } = useLocalAudio();
 
   const [title, setTitle] = useState(currentTitle);
   const [titleRu, setTitleRu] = useState(currentTitleRu);
   const [titleEn, setTitleEn] = useState(currentTitleEn);
   const [titleKk, setTitleKk] = useState(currentTitleKk);
   const [imageUri, setImageUri] = useState<string | undefined>(currentImageUri);
-  const [audioUri, setAudioUri] = useState<string | undefined>(currentAudioUri || undefined);
+  const [audioUri, setAudioUri] = useState<string | undefined>(currentAudioUri);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Reset local state on open
+  // Сброс состояния при открытии
   useEffect(() => {
     if (visible) {
       setTitle(currentTitle);
@@ -76,11 +82,10 @@ const EditCardModal: FC<EditCardModalProps> = ({
       setTitleEn(currentTitleEn);
       setTitleKk(currentTitleKk);
       setImageUri(currentImageUri);
-      setAudioUri(currentAudioUri || undefined);
+      setAudioUri(currentAudioUri);
       setConfirmingDelete(false);
       setSaving(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const pickImage = async () => {
@@ -104,11 +109,25 @@ const EditCardModal: FC<EditCardModalProps> = ({
     }
     setSaving(true);
     try {
+      let finalImage = imageUri;
       let finalAudio: string | undefined;
-      if (recordedUri) finalAudio = await encryptAudio(recordedUri);
-      else if (audioUri) finalAudio = audioUri;
 
-      // Only pass translations if admin
+      // Работа с аудио: копируем запись локально
+      if (recordedUri) {
+        const dest = `${FileSystem.documentDirectory}audio_${cardId}.m4a`;
+        await FileSystem.copyAsync({ from: recordedUri, to: dest });
+        if (mode === 'user') {
+          // для глобальных карт сохраняем локально и не отправляем на сервер
+          await setLocal(cardId, dest);
+        } else {
+          // для пользовательских карт отправляем на сервер
+          finalAudio = dest;
+        }
+      } else if (audioUri) {
+        finalAudio = audioUri;
+      }
+
+      // Переводы для admin
       const ru = mode === 'admin' ? titleRu.trim() || undefined : undefined;
       const en = mode === 'admin' ? titleEn.trim() || undefined : undefined;
       const kk = mode === 'admin' ? titleKk.trim() || undefined : undefined;
@@ -118,7 +137,7 @@ const EditCardModal: FC<EditCardModalProps> = ({
         ru,
         en,
         kk,
-        imageUri,
+        finalImage,
         finalAudio
       );
       onCancel();
@@ -131,7 +150,7 @@ const EditCardModal: FC<EditCardModalProps> = ({
   };
 
   const wrapperWidth = Math.min(SCREEN_W * 0.9, CARD_MAX_W);
-  const wrapperMaxHeight = SCREEN_H * 0.99;
+  const wrapperMaxHeight = SCREEN_H * 0.9;
   const previewSize = wrapperWidth * 0.6;
 
   return (
@@ -277,7 +296,7 @@ export default EditCardModal;
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -285,6 +304,7 @@ const styles = StyleSheet.create({
   wrapper: {
     backgroundColor: '#FFF',
     borderRadius: 8,
+    padding: 0,
   },
   container: {
     padding: 16,
