@@ -27,7 +27,8 @@
     "android": {
       "icon": "./assets/IWANT.png",
       "edgeToEdgeEnabled": true,
-      "package": "IWANT.sinedd"
+      "package": "IWANT.sinedd",
+      "screenOrientation": "default"
     },
     "web": {
       "favicon": "./assets/IWANT.png"

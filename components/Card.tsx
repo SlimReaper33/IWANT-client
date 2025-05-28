@@ -1,5 +1,3 @@
-// components/Card.tsx
-
 import React, { useMemo } from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -37,7 +35,8 @@ export default function Card({
   // Составляем корректный URL картинки
   const uri = useMemo(() => {
     const pick = thumbnailUri ?? imageUri;
-    if (pick.startsWith("http")) {
+    // Если это полноценный URL (http/https) или локальный файл, возвращаем без изменений
+    if (pick.startsWith("http") || pick.startsWith("file://")) {
       return pick;
     }
     // относительный путь
@@ -62,9 +61,9 @@ export default function Card({
         style={[styles.image, { width: imageSize, height: imageSize }]}
         resizeMode="cover"
         onError={() => {
-          /* если не удалось загрузить, можно переключить на плейсхолдер */
+          /* при необходимости можно установить PLACEHOLDER_IMAGE: */
+          /* source={{ uri: PLACEHOLDER_IMAGE }} */
         }}
-        defaultSource={undefined}
       />
     </View>
   );

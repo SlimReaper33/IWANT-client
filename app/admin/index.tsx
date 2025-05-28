@@ -21,6 +21,8 @@ import { useKazakhRecorder } from '../../hooks/useKazakhRecoreder';
 import { encryptAudio } from '../../utils/encryption';
 import EditCardModal from '../../components/EditCardModal';
 import { updateGlobalCard } from '../../utils/cards';
+import { useLocalAssets } from '../../hooks/useLocalAssets';  // путь подставьте свой
+
 
 interface GlobalCard {
     _id: string;
@@ -79,6 +81,7 @@ export default function AdminPanel(): JSX.Element | null {
     // Multi-select states
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
     const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
+   
 
     // New global card form
     const [title, setTitle] = useState<string>('');
@@ -95,6 +98,8 @@ export default function AdminPanel(): JSX.Element | null {
     // Edit modal
     const [editingCard, setEditingCard] = useState<GlobalCard | null>(null);
     const [editModalVisible, setEditModalVisible] = useState<boolean>(false);
+    const { map: localAssets, setLocalImage, setLocalAudio } = useLocalAssets();
+    
 
     // Load initial data
     useEffect(() => {
@@ -380,12 +385,16 @@ export default function AdminPanel(): JSX.Element | null {
                     <EditCardModal
                         mode="admin"
                         visible={editModalVisible}
+                        cardId={editingCard._id}
                         currentTitle={editingCard.title}
                         currentTitleRu={editingCard.title_ru}
                         currentTitleEn={editingCard.title_en}
                         currentTitleKk={editingCard.title_kk}
                         currentImageUri={editingCard.imageUri}
                         currentAudioUri={editingCard.audio_kk}
+                        
+                       
+                       
                         onConfirm={async (newTitle, newRu, newEn, newKk, newImg, newAudio) => {
                             const updated = await updateGlobalCard(
                                 editingCard._id,

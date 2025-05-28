@@ -39,7 +39,6 @@ export default function BlockOne({
   onDropCard,
   onAddPress,
   onEditPress,
-  onDeleteCard,
   onOpenMenu,
   dropZoneY,
   isModalOpen,
@@ -116,10 +115,10 @@ export default function BlockOne({
           ))}
         </View>
       )}
-
+      
       {/* Карточки */}
       {(["line1", "line2", "line3"] as const).map((key, idx) =>
-        pageCards[key].map((card, i) => {
+       pageCards[key].map((card, i) => {
           const pos = getCardPosition(idx + 1, i, pageCards[key].length);
           const keyId = `${idx + 1}-${card.id}-${i}`;
           return (
