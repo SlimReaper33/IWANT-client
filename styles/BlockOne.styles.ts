@@ -90,6 +90,16 @@ export default StyleSheet.create({
     alignItems: 'center',
     marginLeft: 12,
   },
+  roundButtonPlus: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+    zIndex: 9999,
+  },
   buttonIcon: {
     fontSize: 18,
     color: '#333',

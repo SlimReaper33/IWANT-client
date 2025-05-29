@@ -3,14 +3,13 @@
 import React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
-  Pressable,
   useWindowDimensions
 } from "react-native";
 import Card from "./Card";
 import { isTablet, moderateScale } from "../utils/_responsive";
+import BlockThreeButtons from "./BlockThreeButtons";
 
 interface BlockThreeCard {
   id: string;
@@ -36,7 +35,6 @@ export default function BlockThree({
 }: BlockThreeProps) {
   const { width, height } = useWindowDimensions();
   const isLandscapeTablet = isTablet && width > height;
-  const ICON_SIZE = moderateScale(isLandscapeTablet ? 16 : 40);
   const PAD = moderateScale(isLandscapeTablet ? 6 : 8);
 
   return (
@@ -71,29 +69,11 @@ export default function BlockThree({
       </View>
 
       {/* Кнопки */}
-      <View style={[styles.buttons, { width: ICON_SIZE + PAD * 2 }]}>
-        {[
-          { action: onSpeak,      icon: "🔊", key: "speak" },
-          { action: onRemoveLast, icon: "↩️", key: "undo" },
-          { action: onRemoveAll,  icon: "🗑️", key: "clear" },
-        ].map(({ action, icon, key }) => (
-          <Pressable
-            key={key}
-            onPress={action}
-            style={[
-              styles.button,
-              {
-                width: ICON_SIZE,
-                height: ICON_SIZE,
-                borderRadius: ICON_SIZE / 2,
-                marginVertical: PAD / 2,
-              },
-            ]}
-          >
-            <Text style={{ fontSize: ICON_SIZE * 0.5 }}>{icon}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <BlockThreeButtons
+        onSpeak={onSpeak}
+        onRemoveLast={onRemoveLast}
+        onRemoveAll={onRemoveAll}
+      />
     </View>
   );
 }
@@ -119,15 +99,5 @@ const styles = StyleSheet.create({
   cardsContainer: {
     flexDirection: "row",
     paddingHorizontal: moderateScale(10),
-  },
-  buttons: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  button: {
-    backgroundColor: "#FFF",
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 2,
   },
 });

@@ -20,7 +20,6 @@ import EditCardModal from "../components/EditCardModal";
 import GearMenu from "../components/GearMenu";
 
 import { useLocalAssets } from "../hooks/useLocalAssets";
-import { useLocalAudio } from "../hooks/useLocalAudio";
 
 import { customFetch } from "../utils/auth";
 import {
@@ -37,8 +36,8 @@ export default function Index(): JSX.Element | null {
   const { userToken: token, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
 
+  // Единый хук для локальных картинок и аудио
   const { map: localAssets, setLocalImage, setLocalAudio } = useLocalAssets();
-  const { map: localAudioMap } = useLocalAudio();
 
   const [selectedSection, setSelectedSection] = useState<SectionId>("family");
   const [currentPage, setCurrentPage] = useState(1);
@@ -112,6 +111,15 @@ export default function Index(): JSX.Element | null {
     },
   });
 
+  useEffect(() => {
+    setCardsInBlockThree((prev) =>
+      prev.map((c) => ({
+        ...c,
+        audio_kk: localAssets[c.id]?.audio ?? c.audio_kk,
+      }))
+    );
+  }, [localAssets]);
+
   // Прелоадим превьюшки глобальных карт
   useEffect(() => {
     globalCards.forEach((c) => {
@@ -131,14 +139,15 @@ export default function Index(): JSX.Element | null {
         ...c,
         imageUri: entry.image ?? c.imageUri,
         thumbnailUri: entry.image ?? c.thumbnailUri ?? c.imageUri,
-        audio_kk: localAudioMap[c.id] ?? c.audio_kk,
+        audio_kk: entry.audio ?? c.audio_kk,
       };
     });
-  }, [globalCards, personalCards, localAssets, localAudioMap]);
+  }, [globalCards, personalCards, localAssets]);
 
   /** PageCards для BlockOne */
   const pageCards: PageCards = useMemo(() => {
     const hidden = new Set(cardsInBlockThree.map((c) => c.id));
+
     const avail = allCards.filter(
       (c) => c.section === selectedSection && c.page === currentPage && !hidden.has(c.id)
     );
@@ -160,6 +169,7 @@ export default function Index(): JSX.Element | null {
     }
     for (const c of cardsInBlockThree) {
       if (i18n.language === "kk" && c.audio_kk) {
+        // Проигрываем локальное аудио на казахском
         const sound = new Audio.Sound();
         try {
           await sound.loadAsync({ uri: c.audio_kk });
@@ -173,15 +183,33 @@ export default function Index(): JSX.Element | null {
             });
           });
         } catch {
+          // Если ошибка — fallback на TTS казахский
           const msg = c.title_kk || c.title;
           await new Promise<void>((resolve) => {
             Speech.speak(msg, { language: "kk-KZ", onDone: () => resolve(), onError: () => resolve() });
           });
         }
-      } else {
-        const msg = c.title_ru || c.title;
+      } else if (i18n.language === "kk" && !c.audio_kk) {
+        // Казахский язык, но нет аудио — читаем title_kk русским голосом
+        const msg = c.title_kk || c.title;
         await new Promise<void>((resolve) => {
           Speech.speak(msg, { language: "ru-RU", rate: 0.9, onDone: () => resolve(), onError: () => resolve() });
+        });
+      } else {
+        // Остальные языки (ru, en)
+        let lang = "ru-RU";
+        let text = c.title_ru || c.title;
+
+        if (i18n.language === "en") {
+          lang = "en-US";
+          text = c.title_en || c.title;
+        } else if (i18n.language === "ru") {
+          lang = "ru-RU";
+          text = c.title_ru || c.title;
+        }
+
+        await new Promise<void>((resolve) => {
+          Speech.speak(text, { language: lang, rate: 0.9, onDone: () => resolve(), onError: () => resolve() });
         });
       }
     }
@@ -189,12 +217,31 @@ export default function Index(): JSX.Element | null {
 
   /** CRUD */
   const handleCreate = async (card: CardType, line: number) => {
-    if (parentControlOn) return Alert.alert(t("parentalControlActive"));
-    const result = await apiAddCard(card.title, card.imageUri, selectedSection, line, currentPage, token!);
-    if (result?.offline && result.card) setCardsInBlockThree((p) => [...p, result.card]);
-    await refetchPersonal();
-    setAddModalVisible(false);
-  };
+  if (parentControlOn) return Alert.alert(t("parentalControlActive"));
+
+  // Используем pageCards из useMemo, который уже содержит фильтрацию по currentPage и selectedSection
+  const cardsInLine = [
+    ...pageCards.line1,
+    ...pageCards.line2,
+    ...pageCards.line3,
+  ].filter(c => c.line === line);
+
+  if (cardsInLine.length >= 5) {
+    return Alert.alert(
+      t("maxCardsLimitReached"),
+      t("max5CardsAllowedPerLine") // "Максимум 5 карт в одной линии"
+    );
+  }
+
+  const result = await apiAddCard(card.title, card.imageUri, selectedSection, line, currentPage, token!);
+
+  if (result?.offline && result.card) {
+    setCardsInBlockThree((p) => [...p, result.card]);
+  }
+
+  await refetchPersonal();
+  setAddModalVisible(false);
+};
   const handleDelete = async (line: number, card: CardType) => {
     if (parentControlOn) return Alert.alert(t("parentalControlActive"));
     await apiDeleteCard(card.id, token!);
@@ -210,6 +257,7 @@ export default function Index(): JSX.Element | null {
     newAudio?: string
   ) => {
     if (!editParams || parentControlOn) return;
+
     const updatedCard = (await apiUpdateCard(
       editParams.card.id,
       newTitle,
@@ -217,11 +265,24 @@ export default function Index(): JSX.Element | null {
       newAudio,
       token!
     )) as CardType;
-    setCardsInBlockThree((prev) => prev.map((c) => (c.id === updatedCard.id ? updatedCard : c)));
+
+    setCardsInBlockThree((prev) =>
+      prev.map((c) => (c.id === updatedCard.id ? updatedCard : c))
+    );
+
     await refetchPersonal();
     setEditModalVisible(false);
   };
-  const handleDrop = (line: number, card: CardType) => setCardsInBlockThree((prev) => [...prev, card]);
+
+  const handleDrop = (line: number, card: CardType, onReject?: () => void) => {
+  if (cardsInBlockThree.length >= 10) {
+    Alert.alert(t("maxCardsLimitReached"), t("max10CardsAllowed"));
+    // Если есть callback на отклонение, вызываем его — чтобы карта вернулась на место
+    if (onReject) onReject();
+    return;
+  }
+  setCardsInBlockThree((prev) => [...prev, card]);
+};
 
   return (
     <>
@@ -257,12 +318,10 @@ export default function Index(): JSX.Element | null {
 
         <View style={styles.block3} onLayout={(e) => setDropZoneY(e.nativeEvent.layout.y)}>
           <BlockThree
-            cards={
-              cardsInBlockThree.map((c) => {
-                const thumb = c.thumbnailUri ?? c.imageUri;
-                return { ...c, imageUri: thumb };
-              })
-            }
+            cards={cardsInBlockThree.map((c) => ({
+              ...c,
+              audio_kk: localAssets[c.id]?.audio ?? c.audio_kk,
+            }))}
             onSpeak={speakBlockThree}
             onRemoveLast={() => setCardsInBlockThree((p) => p.slice(0, -1))}
             onRemoveAll={() => setCardsInBlockThree([])}
@@ -288,13 +347,13 @@ export default function Index(): JSX.Element | null {
               currentTitleKk={editParams.card.title_kk}
               currentImageUri={editParams.card.imageUri}
               currentAudioUri={editParams.card.audio_kk}
-              
               setLocalImage={setLocalImage}
               setLocalAudio={setLocalAudio}
               map={localAssets}
               onConfirm={handleUpdate}
               onDelete={() => handleDelete(editParams.line, editParams.card)}
               onCancel={() => setEditModalVisible(false)}
+              isGlobal={globalCards.some(c => c.id === editParams.card.id)}
             />
           </View>
         )}

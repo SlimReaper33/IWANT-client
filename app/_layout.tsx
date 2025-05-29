@@ -1,9 +1,9 @@
 import 'react-native-get-random-values';
 import '../src/i18n';
-import React, { useEffect, ReactNode } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { BackHandler, Alert } from 'react-native';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, Alert, BackHandler, Dimensions } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -20,6 +20,10 @@ import { getAuthToken } from '../utils/auth';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PortalProvider, PortalHost } from '@gorhom/portal';
 import GlobalSyncManager from '../components/GlobalSyncManager';
+
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { isTablet } from '../utils/_responsive';
+import { useTranslation } from 'react-i18next';
 
 // 30 дней в миллисекундах
 const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
@@ -39,22 +43,6 @@ const asyncStoragePersister = createAsyncStoragePersister({
   storage: AsyncStorage,
 });
 
-function NavigationBlocker() {
-  const { enabled } = useParentControl();
-  useEffect(() => {
-    const onBackPress = (): boolean => {
-      if (enabled) {
-        Alert.alert('Родительский контроль', 'Нельзя покинуть приложение.');
-        return true;
-      }
-      return false;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => sub.remove();
-  }, [enabled]);
-  return null;
-}
-
 function RouterGuard() {
   const { userToken, userRole, loading } = useAuth();
   const router = useRouter();
@@ -63,7 +51,7 @@ function RouterGuard() {
 
   useEffect(() => {
     if (loading) return;
-    const publicRoutes = ['welcomeScreen','login','register','forgot-password','reset-password'];
+    const publicRoutes = ['welcomeScreen', 'login', 'register', 'forgot-password', 'reset-password'];
     if (!userToken) {
       if (!publicRoutes.includes(seg0)) router.replace('/welcomeScreen');
     } else {
@@ -81,9 +69,73 @@ function RouterGuard() {
   return <Slot />;
 }
 
+function useOrientation() {
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>(
+    Dimensions.get('window').height >= Dimensions.get('window').width ? 'portrait' : 'landscape'
+  );
+
+  useEffect(() => {
+    const callback = ({ window }: { window: any }) => {
+      setOrientation(window.height >= window.width ? 'portrait' : 'landscape');
+    };
+
+    const subscription = Dimensions.addEventListener('change', callback);
+
+    return () => subscription.remove();
+  }, []);
+
+  return orientation;
+}
+
+function NavigationBlocker() {
+  const { enabled } = useParentControl();
+  const { t } = useTranslation();
+  useEffect(() => {
+    const onBackPress = (): boolean => {
+      if (enabled) {
+        Alert.alert(t('parentalControlActive'), t('parentalControlMessage'));
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [enabled]);
+  return null;
+}
+
+function useBackHandler(modalVisible: boolean, closeModal: () => void) {
+  const router = useRouter();
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (modalVisible) {
+        closeModal();
+        return true; // закрываем модалку
+      }
+      if (router.canGoBack()) {
+        router.back();
+        return true; // навигация назад
+      }
+      Alert.alert(
+        t('quit'),
+        t('quitFromApp'),
+        [
+          { text: t('cancel'), style: 'cancel' },
+          { text: t('exit'), onPress: () => BackHandler.exitApp() },
+        ]
+      );
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [modalVisible, closeModal, router]);
+}
+
 function SyncManager() {
   useEffect(() => {
-    const unsub = NetInfo.addEventListener(async state => {
+    const unsub = NetInfo.addEventListener(async (state) => {
       if (state.isConnected) {
         const pending = await getPendingCards();
         if (pending.length) {
@@ -110,24 +162,68 @@ function SyncManager() {
   return null;
 }
 
+
 export default function RootLayout() {
+  const orientation = useOrientation();
+  const insets = useSafeAreaInsets();
+  const [modalVisible, setModalVisible] = useState(false); // пример модалки (если есть)
+  const closeModal = useCallback(() => setModalVisible(false), []);
+
+  // Ограничиваем поворот только для планшетов
+  useEffect(() => {
+  async function manageOrientation() {
+    console.log('Device is tablet?', isTablet);
+    if (isTablet) {
+      await ScreenOrientation.unlockAsync();
+      console.log('Orientation unlocked for tablet');
+    } else {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+      console.log('Orientation locked to portrait for phone');
+    }
+  }
+  manageOrientation();
+}, []);
+
+  // Используем кастомный back handler
+  useBackHandler(modalVisible, closeModal);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <ParentControlProvider>
           <PortalProvider>
-            {/* Только PersistQueryClientProvider — он сам внутрь включает QueryClientProvider */}
             <PersistQueryClientProvider
               client={queryClient}
               persistOptions={{ persister: asyncStoragePersister, maxAge: THIRTY_DAYS }}
             >
               <GlobalSyncManager>
-                <SafeAreaView style={{ flex: 1 }}>
-                  <SyncManager />
-                  <NavigationBlocker />
-                  <RouterGuard />
-                  <PortalHost name="root" />
-                </SafeAreaView>
+                <SafeAreaProvider>
+                  <SafeAreaView
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#fff',
+                    }}
+                    edges={['top', 'left', 'right', 'bottom']} // покрываем всю safe area, включая снизу
+                  >
+                    <SyncManager />
+                    <NavigationBlocker />
+                    <RouterGuard />
+                    <PortalHost name="root" />
+
+                    {/* Для отладки ориентации и отступов */}
+                    <View
+                      style={{
+                        position: 'absolute',
+                        bottom: insets.bottom + 10,
+                        left: 10,
+                        padding: 4,
+                        borderRadius: 4,
+                        zIndex: 9999,
+                      }}
+                    >
+                    </View>
+                  </SafeAreaView>
+                </SafeAreaProvider>
               </GlobalSyncManager>
             </PersistQueryClientProvider>
           </PortalProvider>

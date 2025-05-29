@@ -19,17 +19,38 @@ export function useLocalAssets() {
     });
   }, []);
 
-  const setLocalImage = async (cardId: string, uri: string) => {
-    const upd = { ...map, [cardId]: { ...map[cardId], image: uri } };
-    setMap(upd);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(upd));
-  };
+  const setLocalImage = async (cardId: string, uri: string | null) => {
+  const upd = { ...map };
+  if (uri === null) {
+    if (upd[cardId]) {
+      delete upd[cardId].image;
+      // Если после удаления объекта нет полей, удаляем его совсем
+      if (Object.keys(upd[cardId]).length === 0) {
+        delete upd[cardId];
+      }
+    }
+  } else {
+    upd[cardId] = { ...upd[cardId], image: uri };
+  }
+  setMap(upd);
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(upd));
+};
 
-  const setLocalAudio = async (cardId: string, uri: string) => {
-    const upd = { ...map, [cardId]: { ...map[cardId], audio: uri } };
-    setMap(upd);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(upd));
-  };
+const setLocalAudio = async (cardId: string, uri: string | null) => {
+  const upd = { ...map };
+  if (uri === null) {
+    if (upd[cardId]) {
+      delete upd[cardId].audio;
+      if (Object.keys(upd[cardId]).length === 0) {
+        delete upd[cardId];
+      }
+    }
+  } else {
+    upd[cardId] = { ...upd[cardId], audio: uri };
+  }
+  setMap(upd);
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(upd));
+};
 
   return { map, setLocalImage, setLocalAudio };
 }

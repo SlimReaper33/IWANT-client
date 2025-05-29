@@ -18,8 +18,6 @@ import { useTranslation } from 'react-i18next';
 import LocalizedText from './LocalizedText';
 import { useKazakhRecorder } from '../hooks/useKazakhRecoreder';
 import * as FileSystem from 'expo-file-system';
-import { useLocalAssets } from '../hooks/useLocalAssets';
-import { useLocalAudio } from '../hooks/useLocalAudio';
 
 const CARD_MAX_W = 340;
 
@@ -34,8 +32,8 @@ export interface EditCardModalProps {
   currentImageUri?: string;
   currentThumbnailUri?: string;
   currentAudioUri?: string;
-  setLocalImage(cardId: string, uri: string): Promise<void>;
-  setLocalAudio?(cardId: string, uri: string): Promise<void>;
+  setLocalImage(cardId: string, uri: string | null): Promise<void>;
+  setLocalAudio(cardId: string, uri: string | null): Promise<void>;
   map: Record<string, { image?: string; audio?: string }>;
   onConfirm(
     newTitle: string,
@@ -47,6 +45,7 @@ export interface EditCardModalProps {
   ): Promise<void>;
   onCancel(): void;
   onDelete?(): void;
+  isGlobal?: boolean; // флаг глобальной карты, по умолчанию false
 }
 
 const EditCardModal: FC<EditCardModalProps> = ({
@@ -66,9 +65,10 @@ const EditCardModal: FC<EditCardModalProps> = ({
   setLocalImage,
   setLocalAudio,
   map,
+  isGlobal = false,
 }) => {
   const { t } = useTranslation();
-  // Приводим хук к верному типу, чтобы uri был string | null
+
   const recorder = useKazakhRecorder() as {
     recording: boolean;
     uri: string | null;
@@ -80,8 +80,6 @@ const EditCardModal: FC<EditCardModalProps> = ({
   const recordedUri = recordedUriRaw ?? undefined;
 
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
-  const { map: localEntry } = useLocalAssets();
-  const { map: localAudioMap, setLocal: setAudioLocal } = useLocalAudio();
 
   const [title, setTitle] = useState(currentTitle);
   const [titleRu, setTitleRu] = useState(currentTitleRu);
@@ -99,17 +97,43 @@ const EditCardModal: FC<EditCardModalProps> = ({
       setTitleRu(currentTitleRu);
       setTitleEn(currentTitleEn);
       setTitleKk(currentTitleKk);
-      setImageUri(currentImageUri);
-      setAudioUri(currentAudioUri);
+
+      const localEntry = map[cardId];
+      setImageUri(localEntry?.image ?? currentImageUri);
+      setAudioUri(localEntry?.audio ?? currentAudioUri);
+
       setPreviewLoading(false);
       setConfirmingDelete(false);
       setSaving(false);
     }
-  }, [visible]);
+  }, [visible, map, cardId, currentImageUri, currentAudioUri, currentTitle, currentTitleRu, currentTitleEn, currentTitleKk]);
 
-  const localImg = localEntry[cardId]?.image;
-  const localAud = localAudioMap[cardId];
-  // Используем миниатюру для быстрой загрузки, fallback на полное изображение
+  // Сброс локальных изменений к оригинальным картинке и аудио
+  const resetToOriginal = () => {
+    Alert.alert(
+      t('resetConfirmTitle') || 'Confirm',
+      t('resetConfirmMessage') || 'Are you sure you want to reset to original?',
+      [
+        { text: t('cancel') || 'Cancel', style: 'cancel' },
+        {
+          text: t('yes') || 'Yes',
+          onPress: async () => {
+            await setLocalImage(cardId, null);
+            await setLocalAudio(cardId, null);
+
+            setImageUri(currentImageUri);
+            setAudioUri(currentAudioUri);
+
+            onCancel();
+          },
+        },
+      ]
+    );
+  };
+
+  const localEntry = map[cardId];
+  const localImg = localEntry?.image;
+  const localAud = localEntry?.audio;
   const thumbUri = localImg ?? currentThumbnailUri ?? currentImageUri;
 
   const pickImage = async () => {
@@ -144,18 +168,25 @@ const EditCardModal: FC<EditCardModalProps> = ({
       let finalAudio: string | undefined;
 
       if (recordedUri && typeof recordedUri === 'string') {
-        const ext = recordedUri.includes('.')
-          ? recordedUri.substring(recordedUri.lastIndexOf('.'))
-          : '.m4a';
+        const ext = recordedUri.includes('.') ? recordedUri.substring(recordedUri.lastIndexOf('.')) : '.m4a';
         const dest = `${FileSystem.documentDirectory}audio_${cardId}${ext}`;
         await FileSystem.copyAsync({ from: recordedUri, to: dest });
-        if (mode === 'user' && setAudioLocal) {
-          await setAudioLocal(cardId, dest);
+        finalAudio = dest;
+
+        if (isGlobal) {
+          await setLocalAudio(cardId, dest);
           onCancel();
           setSaving(false);
           return;
         }
-        finalAudio = dest;
+      }
+
+      if (isGlobal) {
+        await setLocalImage(cardId, finalImage!);
+        if (finalAudio) await setLocalAudio(cardId, finalAudio);
+        onCancel();
+        setSaving(false);
+        return;
       }
 
       const ru = mode === 'admin' ? titleRu.trim() || undefined : undefined;
@@ -172,17 +203,13 @@ const EditCardModal: FC<EditCardModalProps> = ({
     }
   };
 
-  const wrapperWidth = Math.min(SCREEN_W * 0.9, CARD_MAX_W);
-  const wrapperMaxHeight = SCREEN_H * 0.9;
-  const previewSize = wrapperWidth * 0.6;
-
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.overlay}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={80}
-          style={[styles.wrapper, { width: wrapperWidth, maxHeight: wrapperMaxHeight }]}
+          style={[styles.wrapper, { width: Math.min(SCREEN_W * 0.9, CARD_MAX_W), maxHeight: SCREEN_H * 0.9 }]}
         >
           <ScrollView contentContainerStyle={styles.container}>
             {!confirmingDelete ? (
@@ -200,20 +227,31 @@ const EditCardModal: FC<EditCardModalProps> = ({
                   />
                 )}
 
-                <Pressable style={styles.imageButton} onPress={pickImage} disabled={saving}>
-                  <LocalizedText style={styles.imageButtonText}>{t('changeImage')}</LocalizedText>
-                </Pressable>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <Pressable style={[styles.imageButton, { flex: 1, marginRight: 8 }]} onPress={pickImage} disabled={saving}>
+                    <LocalizedText style={styles.imageButtonText}>{t('changeImage')}</LocalizedText>
+                  </Pressable>
+
+                  {/* Кнопка сброса видна только если карта глобальная */}
+                  {isGlobal && (
+                    <Pressable
+                      style={[styles.imageButton, { flex: 1 }]}
+                      onPress={resetToOriginal}
+                      disabled={saving}
+                    >
+                      <LocalizedText style={styles.imageButtonText}>{t('resetImage')}</LocalizedText>
+                    </Pressable>
+                  )}
+                </View>
 
                 {thumbUri && (
                   <View>
                     {previewLoading && (
-                      <ActivityIndicator
-                        style={[styles.preview, { position: 'absolute', top: 0, left: 0 }]}
-                      />
+                      <ActivityIndicator style={[styles.preview, { position: 'absolute', top: 0, left: 0 }]} />
                     )}
                     <Image
                       source={{ uri: thumbUri }}
-                      style={[styles.preview, { width: previewSize, height: previewSize }]}
+                      style={[styles.preview, { width: Math.min(SCREEN_W * 0.9, CARD_MAX_W) * 0.6, height: Math.min(SCREEN_W * 0.9, CARD_MAX_W) * 0.6 }]}
                       onLoadStart={() => setPreviewLoading(true)}
                       onLoadEnd={() => setPreviewLoading(false)}
                     />
@@ -240,9 +278,7 @@ const EditCardModal: FC<EditCardModalProps> = ({
                     onPress={() => play(recordedUri || audioUri || localAud!)}
                     disabled={saving}
                   >
-                    <LocalizedText style={styles.audioButtonText}>
-                      {t('playKazakh')}
-                    </LocalizedText>
+                    <LocalizedText style={styles.audioButtonText}>{t('playKazakh')}</LocalizedText>
                   </Pressable>
                 )}
 
@@ -254,6 +290,7 @@ const EditCardModal: FC<EditCardModalProps> = ({
                       <LocalizedText style={styles.btnText}>{t('save')}</LocalizedText>
                     )}
                   </Pressable>
+
                   <Pressable
                     style={[styles.btn, styles.cancelBtn]}
                     onPress={onCancel}
@@ -261,6 +298,17 @@ const EditCardModal: FC<EditCardModalProps> = ({
                   >
                     <LocalizedText style={styles.btnText}>{t('cancel')}</LocalizedText>
                   </Pressable>
+
+                  {/* Кнопка удаления видна только если карта НЕ глобальная */}
+                  {!isGlobal && onDelete && (
+                    <Pressable
+                      style={[styles.btn, styles.deleteBtn]}
+                      onPress={() => setConfirmingDelete(true)}
+                      disabled={saving}
+                    >
+                      <LocalizedText style={styles.btnText}>{t('deleteCard')}</LocalizedText>
+                    </Pressable>
+                  )}
                 </View>
               </>
             ) : (
@@ -299,11 +347,14 @@ export default EditCardModal;
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  wrapper: { backgroundColor: '#FFF', borderRadius: 8, padding: 0 },
+  wrapper: { 
+    backgroundColor: '#FFF', 
+    borderRadius: 8, 
+    padding: 0,
+  },
   container: { padding: 16 },
   header: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
   input: {

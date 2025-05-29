@@ -188,7 +188,7 @@ export default function BlockOne({
             style={styles.editButtonsContainer}
             pointerEvents={isModalOpen ? "none" : "auto"}
           >
-            <Pressable style={styles.roundButton} onPress={onAddPress}>
+            <Pressable style={styles.roundButtonPlus} onPress={onAddPress}>
               <LocalizedText style={styles.buttonIcon}>＋</LocalizedText>
             </Pressable>
           </View>
