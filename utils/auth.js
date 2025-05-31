@@ -106,6 +106,25 @@ export async function forgotPassword(email) {
   }
 }
 
+export async function verifyResetCode(
+  email,
+  code,
+  newPassword
+) {
+  try {
+    const res = await fetch(`${BASE_URL}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code, newPassword }),
+    });
+    const data = await res.json();
+    return { ok: res.ok, message: data.message };
+  } catch (error) {
+    console.error('❌ Verify reset code error:', error);
+    throw error;
+  }
+}
+
 export async function resetPassword(token, newPassword) {
   try {
     const res = await fetch(`${BASE_URL}/reset-password`, {

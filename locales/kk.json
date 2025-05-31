@@ -154,8 +154,17 @@
   "resetConfirmMessage": "Бастапқы картаны қалпына келтіргіңіз келетініне сенімдісіз бе?",
   "maxCardsLimitReached": "Бір жолға карталар шегіне жетті",
   "max5CardsAllowedPerLine": "Бір жолда ең көбі 5 карта",
-  "max10CardsAllowed":"Бір жолда ең көбі 10 карт",
+  "max10CardsAllowed": "Бір жолда ең көбі 10 карт",
   "quit": "Шығу",
   "quitFromApp": "Қолданбадан шығып кеткіңіз келе ме?",
-  "exit": "Шығу"
+  "exit": "Шығу",
+  "sendResetCode": "Қалпына келтіру кодын жіберу",
+  "enterResetCodePlaceholder": "Қалпына келтіру кодын енгізіңіз",
+  "resetPasswordButton": "Құпия сөзді қалпына келтіру",
+  "backToEmail": "Поштаға оралу",
+  "enterResetCodeError": "Қалпына келтіру кодын енгізіңіз",
+  "resetPasswordError": "Құпия сөзді қалпына келтіру сәтсіз болды. Қайта көріңіз.",
+  "passwordResetSuccess": "Құпия сөз сәтті қалпына келтірілді",
+  "youCanNowLogin": "Енді кіре аласыз",
+  "ok": "ОК"
 }

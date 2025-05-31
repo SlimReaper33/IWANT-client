@@ -1,36 +1,58 @@
-// app/screens/ForgotPassword.tsx
+// File: app/screens/ForgotPassword.tsx
+
 import React, { useState } from 'react';
-import { View, TextInput, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  View,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  StyleSheet,
+  Alert,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { forgotPassword } from '../utils/auth';
 import { useTranslation } from 'react-i18next';
 import LocalizedText from '../components/LocalizedText';
 import styles from '../styles/AuthScreen.styles';
+import { forgotPassword, verifyResetCode } from '../utils/auth';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { t } = useTranslation();
 
+  // Шаг 1: пользователь вводит email
+  // Шаг 2: вводит код и новый пароль
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const handleForgotPassword = async () => {
-    setMessage('');
-    setError('');
-
-    if (!email) {
-      setError(t('enterEmailError'));
-      return;
+  const validateEmail = () => {
+    if (!/\S+@\S+\.\S+/.test(email.trim())) {
+      setError(t('invalidEmailError'));
+      return false;
     }
+    return true;
+  };
+
+  const handleSendCode = async () => {
+    setError('');
+    setMessage('');
+
+    if (!validateEmail()) return;
 
     setLoading(true);
     try {
-      // СѓС‚РёР»РёС‚Р° С‚РµРїРµСЂСЊ РІРѕР·РІСЂР°С‰Р°РµС‚ { ok, message }
-      const result = await forgotPassword(email);
+      // Отправляем почтовое сообщение с кодом сброса
+      const result = await forgotPassword(email.trim());
       if (result.ok) {
-        setMessage(result.message);
+        setMessage(result.message); // например: "Код сброса отправлен"
+        setStep(2);
+        setCode(''); // очищаем поле на всякий случай
       } else {
         setError(result.message);
       }
@@ -41,39 +63,183 @@ export default function ForgotPasswordScreen() {
     setLoading(false);
   };
 
+  const validatePasswords = () => {
+    if (newPassword.length < 6) {
+      setError(t('passwordMinLengthError'));
+      return false;
+    }
+    if (newPassword !== confirmPassword) {
+      setError(t('passwordsMismatchError'));
+      return false;
+    }
+    if (!code.trim()) {
+      setError(t('enterResetCodeError'));
+      return false;
+    }
+    return true;
+  };
+
+  const handleVerifyCode = async () => {
+    setError('');
+    setMessage('');
+
+    if (!validatePasswords()) return;
+
+    setLoading(true);
+    try {
+      // Отправляем код и новый пароль на сервер
+      const { ok, message: srvMsg } = await verifyResetCode(
+        email.trim(),
+        code.trim(),
+        newPassword
+      );
+      if (ok) {
+        Alert.alert(
+          t('passwordResetSuccess'),
+          t('youCanNowLogin'),
+          [
+            {
+              text: t('ok'),
+              onPress: () => router.replace('/login'),
+            },
+          ]
+        );
+      } else {
+        setError(srvMsg);
+      }
+    } catch (e) {
+      console.error('Verify reset code error:', e);
+      setError(t('resetPasswordError'));
+    }
+    setLoading(false);
+  };
+
   return (
     <View style={styles.container}>
-      <LocalizedText style={styles.title}>{t('forgotPasswordTitle')}</LocalizedText>
+      <LocalizedText style={styles.title}>
+        {t('forgotPasswordTitle')}
+      </LocalizedText>
 
-      <TextInput
-        style={styles.input}
-        placeholder={t('forgotPasswordPlaceholder')}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
+      {step === 1 && (
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder={t('forgotPasswordPlaceholder')}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
 
-      {loading && <ActivityIndicator color="#fff" style={{ marginVertical: 10 }} />}
-      {message
-        ? <LocalizedText style={styles.message}>{message}</LocalizedText>
-        : null}
-      {error
-        ? <LocalizedText style={styles.error}>{error}</LocalizedText>
-        : null}
+          {loading && (
+            <ActivityIndicator
+              color="#fff"
+              style={{ marginVertical: 10 }}
+            />
+          )}
+          {!!message && (
+            <LocalizedText style={styles.info}>
+              {message}
+            </LocalizedText>
+          )}
+          {!!error && (
+            <LocalizedText style={styles.error}>
+              {error}
+            </LocalizedText>
+          )}
 
-      <Pressable
-        style={styles.button}
-        onPress={handleForgotPassword}
-        disabled={loading}
-      >
-        <LocalizedText style={styles.buttonText}>{t('sendResetLink')}</LocalizedText>
-      </Pressable>
+          <Pressable
+            style={styles.button}
+            onPress={handleSendCode}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#C3947A" />
+            ) : (
+              <LocalizedText style={styles.buttonText}>
+                {t('sendResetCode')}
+              </LocalizedText>
+            )}
+          </Pressable>
 
-      <Pressable onPress={() => router.push('/login')}>
-        <LocalizedText style={styles.link}>{t('backToLogin')}</LocalizedText>
-      </Pressable>
+          <Pressable onPress={() => router.replace('/login')}>
+            <LocalizedText style={styles.link}>
+              {t('backToLogin')}
+            </LocalizedText>
+          </Pressable>
+        </>
+      )}
+
+      {step === 2 && (
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder={t('enterResetCodePlaceholder')}
+            // Токен — hex-строка, поэтому по умолчанию (буквы + цифры)
+            keyboardType="default"
+            autoCapitalize="none"
+            value={code}
+            onChangeText={setCode}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder={t('newPasswordPlaceholder')}
+            secureTextEntry
+            value={newPassword}
+            onChangeText={setNewPassword}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder={t('confirmPasswordPlaceholder')}
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
+
+          {loading && (
+            <ActivityIndicator
+              color="#fff"
+              style={{ marginVertical: 10 }}
+            />
+          )}
+          {!!message && (
+            <LocalizedText style={styles.info}>
+              {message}
+            </LocalizedText>
+          )}
+          {!!error && (
+            <LocalizedText style={styles.error}>
+              {error}
+            </LocalizedText>
+          )}
+
+          <Pressable
+            style={styles.button}
+            onPress={handleVerifyCode}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#C3947A" />
+            ) : (
+              <LocalizedText style={styles.buttonText}>
+                {t('resetPasswordButton')}
+              </LocalizedText>
+            )}
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              setStep(1);
+              setError('');
+              setMessage('');
+            }}
+          >
+            <LocalizedText style={styles.link}>
+              {t('backToEmail')}
+            </LocalizedText>
+          </Pressable>
+        </>
+      )}
     </View>
   );
 }
-

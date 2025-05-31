@@ -158,5 +158,14 @@
     "max10CardsAllowed":"Maximum of 10 cards in one line",
     "quit": "Quit",
     "quitFromApp": "Do you really want to quit the app?",
-    "exit": "Exit"
+    "exit": "Exit",
+    "sendResetCode": "Send Reset Code",
+    "enterResetCodePlaceholder": "Enter Reset Code",
+    "resetPasswordButton": "Reset Password",
+    "backToEmail": "Back to Email",
+    "enterResetCodeError": "Please enter the reset code",
+    "resetPasswordError": "Failed to reset password. Please try again.",
+    "passwordResetSuccess": "Password reset successful",
+    "youCanNowLogin": "You can now log in",
+    "ok": "OK"
 }

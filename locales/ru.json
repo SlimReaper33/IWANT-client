@@ -158,5 +158,14 @@
    "max10CardsAllowed": "Максимум 10 карт в одной линии",
    "quit": "Выход",
    "quitFromApp": "Вы действительно хотите выйти из приложения?",
-   "exit": "Выйти"
+   "exit": "Выйти",
+    "sendResetCode": "Отправить код сброса",
+    "enterResetCodePlaceholder": "Введите код сброса",
+    "resetPasswordButton": "Сбросить пароль",
+    "backToEmail": "Назад к почте",
+    "enterResetCodeError": "Пожалуйста, введите код сброса",
+    "resetPasswordError": "Не удалось сбросить пароль. Пожалуйста, попробуйте снова.",
+    "passwordResetSuccess": "Пароль успешно сброшен",
+    "youCanNowLogin": "Теперь вы можете войти",
+    "ok": "ОК"
 }
