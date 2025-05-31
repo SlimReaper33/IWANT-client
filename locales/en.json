@@ -155,6 +155,7 @@
     "resetConfirmMessage": "Are you sure you want to reset to original card?",
     "maxCardsLimitReached": "The limit of cards per lines has been reached",
     "max5CardsAllowedPerLine": "Maximum of 5 cards in one line",
+    "max10CardsAllowed":"Maximum of 10 cards in one line",
     "quit": "Quit",
     "quitFromApp": "Do you really want to quit the app?",
     "exit": "Exit"

@@ -4,7 +4,7 @@
     "name": "IWANT",
     "slug": "client",
     "version": "1.0.0",
-    "orientation": "default", 
+    "orientation": "default",
     "icon": "./assets/IWANT.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -22,20 +22,45 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.wantthisapp.uk",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "com.wantthisapp.uk",
+            "CFBundleURLSchemes": ["iwant"]
+          }
+        ]
+      },
+      "entitlements": {
+        "com.apple.developer.associated-domains": [
+          "applinks:wantthisapp.uk"
+        ]
+      }
     },
     "android": {
       "icon": "./assets/IWANT.png",
       "edgeToEdgeEnabled": true,
-      "package": "IWANT.sinedd",
-      "screenOrientation": "default"
+      "package": "com.wantthisapp.uk",
+      "screenOrientation": "default",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": ["BROWSABLE", "DEFAULT"],
+          "data": [
+            {
+              "scheme": "https",
+              "host": "wantthisapp.uk",
+              "pathPrefix": "/reset-password"
+            }
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/IWANT.png"
     },
-    "plugins": [
-      "expo-router"
-    ],
+    "plugins": ["expo-router"],
     "extra": {
       "router": {
         "origin": "iwant://"
