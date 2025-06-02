@@ -1,12 +1,10 @@
-// File: app/screens/ForgotPassword.tsx
-
+// app/screens/ForgotPassword.tsx
 import React, { useState } from 'react';
 import {
   View,
   TextInput,
   Pressable,
   ActivityIndicator,
-  StyleSheet,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -19,8 +17,8 @@ export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { t } = useTranslation();
 
-  // Шаг 1: пользователь вводит email
-  // Шаг 2: вводит код и новый пароль
+  // Шаг 1: ввод email
+  // Шаг 2: ввод кода (token) и нового пароля
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -42,17 +40,17 @@ export default function ForgotPasswordScreen() {
   const handleSendCode = async () => {
     setError('');
     setMessage('');
+    console.log('>>> [Client] forgotPassword вызывается с email =', email.trim());
 
     if (!validateEmail()) return;
 
     setLoading(true);
     try {
-      // Отправляем почтовое сообщение с кодом сброса
       const result = await forgotPassword(email.trim());
       if (result.ok) {
         setMessage(result.message); // например: "Код сброса отправлен"
         setStep(2);
-        setCode(''); // очищаем поле на всякий случай
+        setCode('');
       } else {
         setError(result.message);
       }
@@ -82,14 +80,12 @@ export default function ForgotPasswordScreen() {
   const handleVerifyCode = async () => {
     setError('');
     setMessage('');
-
     if (!validatePasswords()) return;
 
     setLoading(true);
     try {
-      // Отправляем код и новый пароль на сервер
+      console.log('>>> [Client] verifyResetCode with code =', code.trim());
       const { ok, message: srvMsg } = await verifyResetCode(
-        email.trim(),
         code.trim(),
         newPassword
       );
@@ -132,20 +128,13 @@ export default function ForgotPasswordScreen() {
           />
 
           {loading && (
-            <ActivityIndicator
-              color="#fff"
-              style={{ marginVertical: 10 }}
-            />
+            <ActivityIndicator color="#fff" style={{ marginVertical: 10 }} />
           )}
           {!!message && (
-            <LocalizedText style={styles.info}>
-              {message}
-            </LocalizedText>
+            <LocalizedText style={styles.info}>{message}</LocalizedText>
           )}
           {!!error && (
-            <LocalizedText style={styles.error}>
-              {error}
-            </LocalizedText>
+            <LocalizedText style={styles.error}>{error}</LocalizedText>
           )}
 
           <Pressable
@@ -163,9 +152,7 @@ export default function ForgotPasswordScreen() {
           </Pressable>
 
           <Pressable onPress={() => router.replace('/login')}>
-            <LocalizedText style={styles.link}>
-              {t('backToLogin')}
-            </LocalizedText>
+            <LocalizedText style={styles.link}>{t('backToLogin')}</LocalizedText>
           </Pressable>
         </>
       )}
@@ -175,7 +162,6 @@ export default function ForgotPasswordScreen() {
           <TextInput
             style={styles.input}
             placeholder={t('enterResetCodePlaceholder')}
-            // Токен — hex-строка, поэтому по умолчанию (буквы + цифры)
             keyboardType="default"
             autoCapitalize="none"
             value={code}
@@ -197,20 +183,13 @@ export default function ForgotPasswordScreen() {
           />
 
           {loading && (
-            <ActivityIndicator
-              color="#fff"
-              style={{ marginVertical: 10 }}
-            />
+            <ActivityIndicator color="#fff" style={{ marginVertical: 10 }} />
           )}
           {!!message && (
-            <LocalizedText style={styles.info}>
-              {message}
-            </LocalizedText>
+            <LocalizedText style={styles.info}>{message}</LocalizedText>
           )}
           {!!error && (
-            <LocalizedText style={styles.error}>
-              {error}
-            </LocalizedText>
+            <LocalizedText style={styles.error}>{error}</LocalizedText>
           )}
 
           <Pressable
@@ -234,9 +213,7 @@ export default function ForgotPasswordScreen() {
               setMessage('');
             }}
           >
-            <LocalizedText style={styles.link}>
-              {t('backToEmail')}
-            </LocalizedText>
+            <LocalizedText style={styles.link}>{t('backToEmail')}</LocalizedText>
           </Pressable>
         </>
       )}

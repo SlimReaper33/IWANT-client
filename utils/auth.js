@@ -92,6 +92,7 @@ export async function resendVerificationEmail(email) {
 }
 
 export async function forgotPassword(email) {
+  console.log('>>> [utils/auth] forgotPassword → fetch', `${BASE_URL}/forgot-password`, { email });
   try {
     const res = await fetch(`${BASE_URL}/forgot-password`, {
       method: 'POST',
@@ -99,6 +100,7 @@ export async function forgotPassword(email) {
       body: JSON.stringify({ email }),
     });
     const data = await res.json();
+    console.log('<<< [utils/auth] forgotPassword ответ:', data, 'status', res.status);
     return { ok: res.ok, message: data.message };
   } catch (error) {
     console.error('❌ Forgot password error:', error);
@@ -106,18 +108,19 @@ export async function forgotPassword(email) {
   }
 }
 
-export async function verifyResetCode(
-  email,
-  code,
-  newPassword
-) {
+/**
+ * Отправляем именно { token, newPassword } без email.
+ */
+export async function verifyResetCode(code, newPassword) {
   try {
+    console.log('>>> [utils/auth] verifyResetCode отправляю код и новый пароль:', code);
     const res = await fetch(`${BASE_URL}/reset-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, code, newPassword }),
+      body: JSON.stringify({ token: code, newPassword }),
     });
     const data = await res.json();
+    console.log('<<< [utils/auth] verifyResetCode ответ:', data, 'status', res.status);
     return { ok: res.ok, message: data.message };
   } catch (error) {
     console.error('❌ Verify reset code error:', error);
